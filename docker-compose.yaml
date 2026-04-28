@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:18
+    container_name: service_budget_database
+    restart: always
+    # set shared memory limit when using docker compose
+    shm_size: 128mb
+    # or set shared memory limit when deploy via swarm stack
+    #volumes:
+    #  - type: tmpfs
+    #    target: /dev/shm
+    #    tmpfs:
+    #      size: 134217728 # 128*2^20 bytes = 128Mb
+    environment:
+      POSTGRES_PASSWORD: "${PG_PASSWORD}"
+      POSTGRES_USER: "${PG_USER}"
+      POSTGRES_DB: "${PG_DATABASE}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - service_budget_database_data:/var/lib/postgresql/18/docker
+    networks:
+      - service_budget
+
+volumes:
+  service_budget_database_data:
+    driver: local
+
+networks:
+  service_budget:
+    driver: bridge
