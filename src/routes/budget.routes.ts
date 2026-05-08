@@ -3,8 +3,8 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 
 export async function budgetRoutes(fastify: FastifyInstance) {
-  fastify.addHook('preHandler', authMiddleware)
-  
+  fastify.addHook('preHandler', authMiddleware);
+
   // GET all budgets
   fastify.get('/budgets', async (request, reply) => {
     const budgets = await prisma.budget.findMany({
@@ -22,7 +22,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
   // GET single budget
   fastify.get<{ Params: { id: string } }>('/budgets/:id', async (request, reply) => {
     const { id } = request.params;
-    
+
     const budget = await prisma.budget.findUnique({
       where: { id },
       include: {
@@ -39,7 +39,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
 
   // POST new budget
   fastify.post<{
-    Params: { userId: string }
+    Params: { userId: string };
     Body: {
       client: string;
       title: string;
@@ -51,7 +51,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
         quantity: number;
         price: number;
       }>;
-    }
+    };
   }>('/budgets', async (request, reply) => {
     const { userId } = request.params;
     const { client, title, discount, totalPrice, items } = request.body;
@@ -84,7 +84,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
       discount?: number;
       status?: string;
       totalPrice?: number;
-    }
+    };
   }>('/budgets/:id', async (request, reply) => {
     const { id } = request.params;
     const data = request.body;

@@ -9,10 +9,10 @@ const app = fastify({
 
 app.register(fastifyJwt, {
   secret: process.env.JWT_SECRET || 'super_secret_token',
-})
+});
 
 app.register(budgetRoutes);
-app.register(authRoutes, {prefix: '/user'})
+app.register(authRoutes, { prefix: '/user' });
 
 const start = async () => {
   try {
