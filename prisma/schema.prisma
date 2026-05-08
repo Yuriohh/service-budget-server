@@ -13,24 +13,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id       String   @id @default(uuid())
+  name     String
+  email    String   @unique
+  password String
+  budgets  Budget[]
+}
+
 model Budget {
-  id         String       @id @default(uuid())
+  id         String        @id @default(uuid())
   client     String
   title      String
   discount   Float?
-  status     String       @default("draft")
+  status     String        @default("draft")
   totalPrice Float
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
   items      ServiceItem[]
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
 }
 
 model ServiceItem {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   title       String
   description String
   quantity    Int
   price       Float
   budgetId    String
-  budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budget      Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 }

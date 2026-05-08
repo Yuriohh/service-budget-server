@@ -1,11 +1,18 @@
 import fastify from 'fastify';
 import { budgetRoutes } from './routes/budget.routes';
+import fastifyJwt from '@fastify/jwt';
+import { authRoutes } from './routes/auth.routes';
 
 const app = fastify({
   logger: true,
 });
 
+app.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET || 'super_secret_token',
+})
+
 app.register(budgetRoutes);
+app.register(authRoutes, {prefix: '/user'})
 
 const start = async () => {
   try {
