@@ -37,3 +37,5 @@ jobs:
 
       - name: 🗄️ Validar Prisma Schema
         run: yarn prisma validate
+        env:
+          DATABASE_URL: "postgresql://fake:fake@localhost:5432/fake"
