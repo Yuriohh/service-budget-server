@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
+import { authMiddleware } from '../middleware/auth';
 
 export async function budgetRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', authMiddleware)
+  
   // GET all budgets
   fastify.get('/budgets', async (request, reply) => {
     const budgets = await prisma.budget.findMany({
@@ -36,6 +39,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
 
   // POST new budget
   fastify.post<{
+    Params: { userId: string }
     Body: {
       client: string;
       title: string;
@@ -49,6 +53,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
       }>;
     }
   }>('/budgets', async (request, reply) => {
+    const { userId } = request.params;
     const { client, title, discount, totalPrice, items } = request.body;
 
     const budget = await prisma.budget.create({
@@ -60,6 +65,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
         items: {
           create: items,
         },
+        userId: userId,
       },
       include: {
         items: true,
