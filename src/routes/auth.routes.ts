@@ -1,10 +1,17 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { UserLoginSchema, UserRegisterSchema } from '../schemas/auth.schemas';
 
 export async function authRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: { name: string; email: string; password: string } }>(
+  fastify.withTypeProvider<ZodTypeProvider>().post(
     '/register',
+    {
+      schema: {
+        body: UserRegisterSchema,
+      },
+    },
     async (request, reply) => {
       const { name, email, password } = request.body;
 
@@ -22,22 +29,30 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.post<{ Body: { email: string; password: string } }>('/login', async (request, reply) => {
-    const { email, password } = request.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+  fastify.withTypeProvider<ZodTypeProvider>().post(
+    '/login',
+    {
+      schema: {
+        body: UserLoginSchema,
+      },
+    },
+    async (request, reply) => {
+      const { email, password } = request.body;
+      const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
-      return reply.status(404).send({ error: 'User not found' });
-    }
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
 
-    const checkPassword = await bcrypt.compare(password, user.password);
+      const checkPassword = await bcrypt.compare(password, user.password);
 
-    if (!checkPassword) {
-      return reply.status(401).send({ error: 'Invalid Credentials' });
-    }
+      if (!checkPassword) {
+        return reply.status(401).send({ error: 'Invalid Credentials' });
+      }
 
-    const token = fastify.jwt.sign({ id: user.id }, { expiresIn: '1d' });
+      const token = fastify.jwt.sign({ id: user.id }, { expiresIn: '1d' });
 
-    return reply.status(200).send({ token });
-  });
+      return reply.status(200).send({ token });
+    },
+  );
 }
