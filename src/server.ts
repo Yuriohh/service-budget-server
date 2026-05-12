@@ -20,7 +20,7 @@ app.register(fastifyJwt, {
   secret: process.env.JWT_SECRET || 'super_secret_token',
 });
 
-app.register(budgetRoutes);
+app.register(budgetRoutes, { prefix: '/budgets' });
 app.register(authRoutes, { prefix: '/user' });
 
 app.setErrorHandler((err, req, reply) => {
