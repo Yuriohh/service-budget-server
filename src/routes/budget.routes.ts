@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { CreateBudgetSchema } from '../schemas/budget.schema';
 
 export async function budgetRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -38,42 +40,36 @@ export async function budgetRoutes(fastify: FastifyInstance) {
   });
 
   // POST new budget
-  fastify.post<{
-    Params: { userId: string };
-    Body: {
-      client: string;
-      title: string;
-      discount?: number;
-      totalPrice: number;
-      items: Array<{
-        title: string;
-        description: string;
-        quantity: number;
-        price: number;
-      }>;
-    };
-  }>('/budgets', async (request, reply) => {
-    const { userId } = request.params;
-    const { client, title, discount, totalPrice, items } = request.body;
+  fastify.withTypeProvider<ZodTypeProvider>().post(
+    '/new-budget',
+    {
+      schema: {
+        body: CreateBudgetSchema,
+      },
+    },
+    async (request, reply) => {
+      const { id: userId } = request.user;
+      const { client, title, discount, totalPrice, items } = request.body;
 
-    const budget = await prisma.budget.create({
-      data: {
-        client,
-        title,
-        discount,
-        totalPrice,
-        items: {
-          create: items,
+      const budget = await prisma.budget.create({
+        data: {
+          client,
+          title,
+          discount,
+          totalPrice,
+          items: {
+            create: items,
+          },
+          userId: userId,
         },
-        userId: userId,
-      },
-      include: {
-        items: true,
-      },
-    });
+        include: {
+          items: true,
+        },
+      });
 
-    return reply.status(201).send(budget);
-  });
+      return reply.status(201).send(budget);
+    },
+  );
 
   // PUT update budget
   fastify.put<{
