@@ -1,17 +1,30 @@
 import { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { CreateBudgetSchema } from '../schemas/budget.schema';
+import { CreateBudgetSchema, GetBudgetSchema, UpdateBudgetSchema } from '../schemas/budget.schema';
 
 export async function budgetRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
 
   // GET all budgets
-  fastify.get('/budgets', async (request, reply) => {
+  fastify.get('/', async (request, reply) => {
+    const { id: userId } = request.user;
+
     const budgets = await prisma.budget.findMany({
+      where: {
+        userId,
+      },
+      omit: {
+        userId: true,
+      },
       include: {
-        items: true,
+        items: {
+          omit: {
+            budgetId: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -22,22 +35,30 @@ export async function budgetRoutes(fastify: FastifyInstance) {
   });
 
   // GET single budget
-  fastify.get<{ Params: { id: string } }>('/budgets/:id', async (request, reply) => {
-    const { id } = request.params;
+  fastify
+    .withTypeProvider<ZodTypeProvider>()
+    .get('/:id', { schema: { params: GetBudgetSchema } }, async (request, reply) => {
+      const { id } = request.params;
+      const budget = await prisma.budget.findUnique({
+        where: { id },
+        omit: {
+          userId: true,
+        },
+        include: {
+          items: {
+            omit: {
+              budgetId: true,
+            },
+          },
+        },
+      });
 
-    const budget = await prisma.budget.findUnique({
-      where: { id },
-      include: {
-        items: true,
-      },
+      if (!budget) {
+        return reply.status(404).send({ error: 'Budget not found' });
+      }
+
+      return reply.send(budget);
     });
-
-    if (!budget) {
-      return reply.status(404).send({ error: 'Budget not found' });
-    }
-
-    return reply.send(budget);
-  });
 
   // POST new budget
   fastify.withTypeProvider<ZodTypeProvider>().post(
@@ -72,38 +93,68 @@ export async function budgetRoutes(fastify: FastifyInstance) {
   );
 
   // PUT update budget
-  fastify.put<{
-    Params: { id: string };
-    Body: {
-      client?: string;
-      title?: string;
-      discount?: number;
-      status?: string;
-      totalPrice?: number;
-    };
-  }>('/budgets/:id', async (request, reply) => {
-    const { id } = request.params;
-    const data = request.body;
+  fastify
+    .withTypeProvider<ZodTypeProvider>()
+    .patch(
+      '/update/:id',
+      { schema: { params: GetBudgetSchema, body: UpdateBudgetSchema } },
+      async (request, reply) => {
+        const { id: userId } = request.user;
+        const { id } = request.params;
+        const { items, ...restData } = request.body;
 
-    const budget = await prisma.budget.update({
-      where: { id },
-      data,
-      include: {
-        items: true,
+        const budget = await prisma.budget.findFirst({
+          where: { userId, id },
+        });
+
+        if (!budget) {
+          return reply.status(404).send({ error: 'Budget not found or Unauthorized' });
+        }
+
+        const updatePayload: Prisma.BudgetUpdateInput = { ...restData };
+
+        if (items) {
+          updatePayload.items = {
+            deleteMany: {},
+            create: items,
+          };
+        }
+
+        const updatedBudget = await prisma.budget.update({
+          where: { id },
+          data: updatePayload,
+          include: {
+            items: {
+              omit: {
+                budgetId: true,
+              },
+            },
+          },
+        });
+
+        return reply.send(updatedBudget);
       },
-    });
-
-    return reply.send(budget);
-  });
+    );
 
   // DELETE budget
-  fastify.delete<{ Params: { id: string } }>('/budgets/:id', async (request, reply) => {
-    const { id } = request.params;
+  fastify
+    .withTypeProvider<ZodTypeProvider>()
+    .delete('/budgets/:id', { schema: { params: GetBudgetSchema } }, async (request, reply) => {
+      const { id: userId } = request.user;
+      const { id } = request.params;
 
-    await prisma.budget.delete({
-      where: { id },
+      const budget = await prisma.budget.findFirst({
+        where: { userId, id },
+      });
+
+      if (!budget) {
+        return reply.status(404).send({ error: 'Budget not found or Unauthorized' });
+      }
+
+      await prisma.budget.delete({
+        where: { id },
+      });
+
+      return reply.status(204).send();
     });
-
-    return reply.status(204).send();
-  });
 }
