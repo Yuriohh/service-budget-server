@@ -14,3 +14,24 @@ export const CreateBudgetSchema = z.object({
     }),
   ),
 });
+
+export const GetBudgetSchema = z.object({
+  id: z.string(),
+});
+
+export const UpdateBudgetSchema = z.object({
+  client: z.string().optional(),
+  title: z.string().optional(),
+  discount: z.number().optional(),
+  totalPrice: z.number().positive('O preço não pode ser negativo').optional(),
+  items: z
+    .array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        quantity: z.number().min(1, 'Quantidade mínima é 1'),
+        price: z.number(),
+      }),
+    )
+    .optional(),
+});
