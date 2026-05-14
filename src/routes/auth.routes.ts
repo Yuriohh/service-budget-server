@@ -52,7 +52,14 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const token = fastify.jwt.sign({ id: user.id }, { expiresIn: '1d' });
 
-      return reply.status(200).send({ token });
+      return reply.status(200).send({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      });
     },
   );
 }
