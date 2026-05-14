@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(yarn lint:*)",
+      "Bash(yarn format:*)",
+      "Bash(yarn dev:*)",
+      "Bash(yarn prisma validate:*)",
+      "Bash(yarn prisma migrate dev:*)",
+      "Bash(yarn prisma studio:*)",
+      "Bash(yarn prisma generate:*)",
+      "Bash(make up:*)",
+      "Bash(make down:*)"
+    ]
+  }
+}
