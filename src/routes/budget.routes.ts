@@ -100,11 +100,11 @@ export async function budgetRoutes(fastify: FastifyInstance) {
       { schema: { params: GetBudgetSchema, body: UpdateBudgetSchema } },
       async (request, reply) => {
         const { id: userId } = request.user;
-        const { id } = request.params;
+        const { id: budgetId } = request.params;
         const { items, ...restData } = request.body;
 
         const budget = await prisma.budget.findFirst({
-          where: { userId, id },
+          where: { userId, id: budgetId },
         });
 
         if (!budget) {
@@ -121,7 +121,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
         }
 
         const updatedBudget = await prisma.budget.update({
-          where: { id },
+          where: { id: budgetId },
           data: updatePayload,
           include: {
             items: {
@@ -139,7 +139,7 @@ export async function budgetRoutes(fastify: FastifyInstance) {
   // DELETE budget
   fastify
     .withTypeProvider<ZodTypeProvider>()
-    .delete('/budgets/:id', { schema: { params: GetBudgetSchema } }, async (request, reply) => {
+    .delete('/delete/:id', { schema: { params: GetBudgetSchema } }, async (request, reply) => {
       const { id: userId } = request.user;
       const { id } = request.params;
 
