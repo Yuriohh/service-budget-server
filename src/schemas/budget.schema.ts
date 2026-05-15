@@ -1,5 +1,7 @@
 import z from 'zod';
 
+export const BudgetStatusEnum = z.enum(['draft', 'sent', 'approved', 'rejected']);
+
 export const CreateBudgetSchema = z.object({
   client: z.string(),
   title: z.string(),
@@ -23,6 +25,7 @@ export const UpdateBudgetSchema = z.object({
   client: z.string().optional(),
   title: z.string().optional(),
   discount: z.number().optional(),
+  status: BudgetStatusEnum.optional(),
   totalPrice: z.number().positive('O preço não pode ser negativo').optional(),
   items: z
     .array(
