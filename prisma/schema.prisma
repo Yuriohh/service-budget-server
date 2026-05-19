@@ -14,11 +14,13 @@ datasource db {
 }
 
 model User {
-  id       String   @id @default(uuid())
-  name     String
-  email    String   @unique
-  password String
-  budgets  Budget[]
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  password             String
+  resetToken           String?
+  resetTokenExpiresAt  DateTime?
+  budgets              Budget[]
 }
 
 enum BudgetStatus {
