@@ -10,3 +10,7 @@ export const UserLoginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string(),
 });
+
+export const UserUpdateSchema = z.object({
+  name: z.string().min(2, 'Nome precisa ter pelo menos 2 caracteres'),
+});

@@ -2,7 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { UserLoginSchema, UserRegisterSchema } from '../schemas/auth.schemas';
+import { UserLoginSchema, UserRegisterSchema, UserUpdateSchema } from '../schemas/auth.schemas';
+import { authMiddleware } from '../middleware/auth';
 
 export async function authRoutes(fastify: FastifyInstance) {
   fastify.withTypeProvider<ZodTypeProvider>().post(
@@ -41,13 +42,13 @@ export async function authRoutes(fastify: FastifyInstance) {
       const user = await prisma.user.findUnique({ where: { email } });
 
       if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
+        return reply.status(404).send({ error: 'Invalid credentials' });
       }
 
       const checkPassword = await bcrypt.compare(password, user.password);
 
       if (!checkPassword) {
-        return reply.status(401).send({ error: 'Invalid Credentials' });
+        return reply.status(401).send({ error: 'Invalid credentials' });
       }
 
       const token = fastify.jwt.sign({ id: user.id }, { expiresIn: '1d' });
@@ -60,6 +61,28 @@ export async function authRoutes(fastify: FastifyInstance) {
           email: user.email,
         },
       });
+    },
+  );
+
+  fastify.withTypeProvider<ZodTypeProvider>().patch(
+    '/update',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: UserUpdateSchema,
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.user;
+      const { name } = request.body;
+
+      const updatedUser = await prisma.user.update({
+        where: { id },
+        data: { name },
+        select: { id: true, name: true, email: true },
+      });
+
+      return reply.status(200).send({ user: updatedUser });
     },
   );
 }
