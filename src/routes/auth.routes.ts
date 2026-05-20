@@ -73,31 +73,11 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.withTypeProvider<ZodTypeProvider>().patch(
-    '/update',
-    {
-      preHandler: authMiddleware,
-      schema: {
-        body: UserUpdateSchema,
-      },
-    },
-    async (request, reply) => {
-      const { id } = request.user;
-      const { name } = request.body;
-
-      const updatedUser = await prisma.user.update({
-        where: { id },
-        data: { name },
-        select: { id: true, name: true, email: true },
-      });
-
-      return reply.status(200).send({ user: updatedUser });
-    },
-  );
-
+  // Rota pública: não requer autenticação e ignora qualquer Bearer token presente no header
   fastify.withTypeProvider<ZodTypeProvider>().post(
     '/forgot-password',
     {
+      config: { skipAuth: true },
       schema: {
         body: ForgotPasswordSchema,
       },
@@ -119,7 +99,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
         const resetLink = `myapp://reset-password?token=${token}`;
 
-        await resend.emails.send({
+        const { error: emailError } = await resend.emails.send({
           from: 'onboarding@resend.dev',
           to: email,
           subject: 'Recuperação de senha',
@@ -133,6 +113,13 @@ export async function authRoutes(fastify: FastifyInstance) {
             <p>Se você não solicitou a recuperação, ignore este e-mail.</p>
           `,
         });
+
+        if (emailError) {
+          request.log.error({ err: emailError }, 'Falha ao enviar e-mail de recuperação de senha');
+          return reply
+            .status(500)
+            .send({ error: 'Falha ao enviar e-mail. Tente novamente mais tarde.' });
+        }
       }
 
       return reply
@@ -140,4 +127,30 @@ export async function authRoutes(fastify: FastifyInstance) {
         .send({ message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' });
     },
   );
+
+  // Rotas privadas: requerem autenticação via Bearer token
+  fastify.register(async (privateRoutes) => {
+    privateRoutes.addHook('preHandler', authMiddleware);
+
+    privateRoutes.withTypeProvider<ZodTypeProvider>().patch(
+      '/update',
+      {
+        schema: {
+          body: UserUpdateSchema,
+        },
+      },
+      async (request, reply) => {
+        const { id } = request.user;
+        const { name } = request.body;
+
+        const updatedUser = await prisma.user.update({
+          where: { id },
+          data: { name },
+          select: { id: true, name: true, email: true },
+        });
+
+        return reply.status(200).send({ user: updatedUser });
+      },
+    );
+  });
 }
