@@ -9,6 +9,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { authRoutes } from './routes/auth.routes';
 import { userRoutes } from './routes/user.routes';
+import { resetPasswordRoutes } from './routes/reset-password.routes';
 
 const app = fastify({
   logger: true,
@@ -24,6 +25,7 @@ app.register(fastifyJwt, {
 app.register(budgetRoutes, { prefix: '/budgets' });
 app.register(authRoutes, { prefix: '/user' });
 app.register(userRoutes, { prefix: '/user' });
+app.register(resetPasswordRoutes, { prefix: '/reset-password' });
 
 app.setErrorHandler((err, req, reply) => {
   if (hasZodFastifySchemaValidationErrors(err)) {

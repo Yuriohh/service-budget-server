@@ -18,3 +18,7 @@ export const UserUpdateSchema = z.object({
 export const ForgotPasswordSchema = z.object({
   email: z.string().email('E-mail inválido'),
 });
+
+export const ResetPasswordQuerySchema = z.object({
+  token: z.string().min(1, 'Token é obrigatório'),
+});

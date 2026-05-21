@@ -29,7 +29,8 @@ Required in `.env`:
 - `JWT_SECRET` — JWT signing secret
 - `PG_PASSWORD`, `PG_USER`, `PG_DATABASE` — used by `docker-compose.yaml`
 - `SALT` — bcrypt salt rounds (defaults to 10)
-- `RESET_PASSWORD_URL` — URL HTTPS da página de redefinição de senha (ex: `https://seuapp.com/reset-password`); usada no e-mail de forgot-password para garantir link clicável em clientes de e-mail
+- `RESET_PASSWORD_URL` — URL base do endpoint de redirect (ex: `http://localhost:3333/reset-password`); usada no e-mail de forgot-password
+- `APP_SCHEME` — scheme do deep link do app (ex: `myapp`); usado pelo endpoint `GET /reset-password` para montar o redirect `myapp://reset-password?token=...`
 
 ## Architecture
 
