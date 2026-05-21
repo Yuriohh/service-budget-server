@@ -1,8 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { UserLoginSchema, UserRegisterSchema } from '../schemas/auth.schemas';
+import {
+  UserLoginSchema,
+  UserRegisterSchema,
+  ResetPasswordBodySchema,
+} from '../schemas/auth.schemas';
 
 export async function authRoutes(fastify: FastifyInstance) {
   fastify.withTypeProvider<ZodTypeProvider>().post(
@@ -60,6 +65,44 @@ export async function authRoutes(fastify: FastifyInstance) {
           email: user.email,
         },
       });
+    },
+  );
+
+  fastify.withTypeProvider<ZodTypeProvider>().post(
+    '/reset-password',
+    {
+      schema: {
+        body: ResetPasswordBodySchema,
+      },
+    },
+    async (request, reply) => {
+      const { token, password } = request.body;
+
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+      const user = await prisma.user.findFirst({
+        where: {
+          resetToken: hashedToken,
+          resetTokenExpiresAt: { gt: new Date() },
+        },
+      });
+
+      if (!user) {
+        return reply.status(400).send({ error: 'Token inválido ou expirado.' });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, Number(process.env.SALT) || 10);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiresAt: null,
+        },
+      });
+
+      return reply.status(200).send({ message: 'Senha redefinida com sucesso.' });
     },
   );
 }
