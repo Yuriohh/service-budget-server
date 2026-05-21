@@ -29,6 +29,7 @@ Required in `.env`:
 - `JWT_SECRET` — JWT signing secret
 - `PG_PASSWORD`, `PG_USER`, `PG_DATABASE` — used by `docker-compose.yaml`
 - `SALT` — bcrypt salt rounds (defaults to 10)
+- `RESET_PASSWORD_URL` — URL HTTPS da página de redefinição de senha (ex: `https://seuapp.com/reset-password`); usada no e-mail de forgot-password para garantir link clicável em clientes de e-mail
 
 ## Architecture
 
