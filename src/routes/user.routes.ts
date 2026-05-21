@@ -33,7 +33,7 @@ export async function userRoutes(fastify: FastifyInstance) {
           data: { resetToken: hashedToken, resetTokenExpiresAt: expiresAt },
         });
 
-        const resetLink = `myapp://reset-password?token=${token}`;
+        const resetLink = `${process.env.RESET_PASSWORD_URL}?token=${token}`;
 
         const { error: emailError } = await resend.emails.send({
           from: 'onboarding@resend.dev',
