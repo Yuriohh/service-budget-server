@@ -1,65 +1,220 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Contexto do projeto
 
-## Commands
+**FechaOrçamento** (`fechaorcamento.com.br`) é um app mobile para prestadores de serviço autônomos brasileiros gerenciarem e enviarem orçamentos para clientes. O objetivo é substituir orçamentos feitos em papel, WhatsApp ou planilha por um fluxo profissional: criar orçamento → adicionar itens/serviços → compartilhar com o cliente.
+
+Este repositório é o **backend** (`service-budget-server`). O frontend é um app React Native + Expo em repositório separado.
+
+**Desenvolvedor:** Júnior 2 em transição para Pleno. O projeto é usado como laboratório de aprendizado além de produto real.
+
+**Status atual:** Em produção local. Em processo de deploy na Railway + publicação na Play Store.
+
+---
+
+## Stack
+
+| Camada          | Tecnologia                          |
+| --------------- | ----------------------------------- |
+| Runtime         | Node.js + TypeScript (ESM)          |
+| Framework       | Fastify 5                           |
+| ORM             | Prisma                              |
+| Banco           | PostgreSQL                          |
+| Validação       | Zod via `fastify-type-provider-zod` |
+| Auth            | JWT (`@fastify/jwt`) + bcrypt       |
+| Package manager | Yarn 4 (Corepack)                   |
+| CI              | GitHub Actions                      |
+
+---
+
+## Comandos essenciais
 
 ```bash
-# Development
-yarn dev                        # Start server with hot-reload (tsx watch) on port 3333
+# Desenvolvimento
+yarn dev                     # Hot-reload via tsx watch, porta 3333
 
-# Code quality
-yarn lint                       # ESLint
-yarn format                     # Prettier (writes in-place)
+# Qualidade de código
+yarn lint                    # ESLint
+yarn format                  # Prettier (escreve no arquivo)
 
-# Database
-make up                         # Start PostgreSQL via Docker Compose
-make down                       # Stop PostgreSQL
-yarn prisma migrate dev         # Run migrations and regenerate Prisma client
-yarn prisma validate            # Validate schema (requires DATABASE_URL)
-yarn prisma studio              # Open Prisma GUI
+# Banco de dados (local)
+make up                      # Sobe PostgreSQL via Docker Compose
+make down                    # Derruba PostgreSQL
+yarn prisma migrate dev      # Roda migrations + regenera client
+yarn prisma validate         # Valida schema (exige DATABASE_URL)
+yarn prisma studio           # Abre GUI do Prisma
+
+# Produção
+yarn build                   # Compila TypeScript → dist/
+yarn start                   # node dist/server.js (usado no Railway)
 ```
 
-No test suite exists yet.
+> **Nunca usar `npm`.** Sempre `yarn`. O `yarn.lock` não deve ser alterado manualmente.
 
-## Environment Variables
+---
 
-Required in `.env`:
-- `DATABASE_URL` — PostgreSQL connection string
-- `JWT_SECRET` — JWT signing secret
-- `PG_PASSWORD`, `PG_USER`, `PG_DATABASE` — used by `docker-compose.yaml`
-- `SALT` — bcrypt salt rounds (defaults to 10)
-- `RESET_PASSWORD_URL` — URL base do endpoint de redirect (ex: `http://localhost:3333/reset-password`); usada no e-mail de forgot-password
-- `APP_SCHEME` — scheme do deep link do app (ex: `myapp`); usado pelo endpoint `GET /reset-password` para montar o redirect `myapp://reset-password?token=...`
+## Variáveis de ambiente
 
-## Architecture
+Arquivo `.env` na raiz (nunca commitar):
 
-**Stack:** Fastify 5 + TypeScript (ESM) + Prisma ORM + PostgreSQL + Zod validation via `fastify-type-provider-zod`.
+```env
+# Banco
+DATABASE_URL=postgresql://user:pass@host:5432/db
 
-**Request lifecycle:**
-1. Zod schemas in `src/schemas/` define and validate request bodies/params.
-2. Routes in `src/routes/` register handlers under prefixes (`/user`, `/budgets`).
-3. `src/middleware/auth.ts` — `authMiddleware` hook calls `request.jwtVerify()` and is applied to the entire `budgetRoutes` plugin via `fastify.addHook('preHandler', ...)`.
-4. `src/lib/prisma.ts` — singleton Prisma client used by all routes.
+# Auth
+JWT_SECRET=sua_chave_secreta
+SALT=10
 
-**Auth flow:** JWT issued at `POST /user/login` with payload `{ id: string }`. The type augmentation in `src/@types/fastify-jwt.d.ts` makes `request.user.id` typed throughout the app.
+# Docker local
+PG_PASSWORD=
+PG_USER=
+PG_DATABASE=
 
-**Data model:**
-- `User` owns many `Budget`s (1-to-many).
-- `Budget` contains many `ServiceItem`s (1-to-many, cascade delete).
-- Budget `status` defaults to `"draft"`.
+# Recuperação de senha
+RESET_PASSWORD_URL=http://localhost:3333/reset-password
+APP_SCHEME=myapp
+```
 
-**Route ownership enforcement:** All budget mutations (`PATCH /budgets/update/:id`, `DELETE /budgets/budgets/:id`) first query with `{ userId, id }` before acting, so users can only modify their own budgets.
+Em produção (Railway), todas as variáveis são injetadas via painel. `DATABASE_URL` é injetada automaticamente pelo serviço PostgreSQL do Railway.
 
-**Validation errors** are caught by the global `setErrorHandler` and returned as structured `400` responses. Response serialization errors return `500` with Zod issue details.
+---
 
-## CI
+## Arquitetura
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`: ESLint, Prettier check, and `prisma validate`. Uses `yarn --immutable` — do not change `yarn.lock` without running `yarn install` locally first.
+### Estrutura de pastas
 
-## Conventions
+```
+src/
+├── @types/
+│   └── fastify-jwt.d.ts      # Augmenta request.user com { id: string }
+├── lib/
+│   └── prisma.ts             # Singleton do Prisma client
+├── middleware/
+│   └── auth.ts               # authMiddleware: chama request.jwtVerify()
+├── routes/
+│   ├── auth.routes.ts        # POST /user/login, /user/register, /user/forgot-password
+│   ├── budget.routes.ts      # CRUD de orçamentos (protegido por auth)
+│   ├── reset-password.routes.ts  # GET /reset-password → redirect deeplink
+│   └── user.routes.ts        # Rotas de perfil de usuário
+├── schemas/
+│   ├── auth.schemas.ts       # Zod schemas de autenticação
+│   └── budget.schema.ts      # Zod schemas de orçamentos
+└── server.ts                 # Bootstrap do Fastify, registro de plugins e rotas
+```
 
-- Package manager: **Yarn 4** (via Corepack). Use `yarn` not `npm`.
-- All routes use `fastify.withTypeProvider<ZodTypeProvider>()` when a Zod schema is attached; omit it for untyped routes (e.g., `GET /budgets/`).
-- Schemas live in `src/schemas/`, one file per domain (`auth.schemas.ts`, `budget.schema.ts`).
-- Pre-commit hook (Husky + lint-staged) runs ESLint + Prettier on staged `src/**/*.ts` files automatically.
+### Ciclo de uma requisição
+
+1. Request chega → Zod valida body/params via schema do `src/schemas/`
+2. Se rota protegida → `authMiddleware` (`preHandler`) chama `request.jwtVerify()`
+3. Handler executa lógica via Prisma client singleton (`src/lib/prisma.ts`)
+4. Erros de validação → `setErrorHandler` global → resposta `400` estruturada
+5. Erros de serialização → `500` com detalhes do Zod issue
+
+### Auth
+
+- JWT emitido em `POST /user/login` com payload `{ id: string }`
+- `request.user.id` é tipado via augmentation em `src/@types/fastify-jwt.d.ts`
+- `authMiddleware` é aplicado via `fastify.addHook('preHandler', ...)` no plugin de budgets — todas as rotas do plugin herdam
+
+### Modelo de dados
+
+```
+User 1 ──→ N Budget 1 ──→ N ServiceItem (cascade delete)
+```
+
+- `Budget.status` padrão: `"draft"`
+- Toda mutação de budget verifica `{ userId, id }` antes de agir — usuário só modifica o próprio
+
+### Padrão de rotas com Zod
+
+```typescript
+// COM schema Zod — obrigatório usar withTypeProvider
+fastify.withTypeProvider<ZodTypeProvider>().post(
+  '/rota',
+  {
+    schema: { body: MinhaSchema },
+  },
+  handler,
+);
+
+// SEM schema — omitir withTypeProvider
+fastify.get('/rota', handler);
+```
+
+---
+
+## CI/CD
+
+GitHub Actions em `.github/workflows/ci.yml`:
+
+- Dispara em push/PR para `main`
+- Roda: ESLint → Prettier check → `prisma validate`
+- Usa `yarn --immutable` (não altera lockfile)
+
+**Próximo passo planejado:** adicionar step de deploy automático no Railway após CI verde.
+
+---
+
+## Estado atual do projeto
+
+### Implementado ✅
+
+- Cadastro, login, logout
+- Recuperação de senha com email + deeplink para o app mobile
+- CRUD completo de orçamentos
+- CRUD de itens de serviço por orçamento
+- Auth middleware em todas as rotas de budget
+- Validação com Zod em todas as rotas
+- CI com lint + prettier + prisma validate
+- Pre-commit hook (Husky + lint-staged)
+
+### Pendente / próximas entregas 🔜
+
+- [ ] Deploy no Railway (backend + PostgreSQL em nuvem)
+- [ ] Domínio `fechaorcamento.com.br` apontando para Railway
+- [ ] Email transacional real (Resend) em produção
+- [ ] Testes de integração nos endpoints
+- [ ] Observabilidade: Sentry para erros em produção
+- [ ] Export de orçamento em PDF
+- [ ] Pipeline CI/CD com deploy automático no Railway
+
+---
+
+## Convenções e regras de código
+
+- **Package manager:** sempre `yarn`, nunca `npm` ou `npx` direto
+- **Schemas:** um arquivo por domínio em `src/schemas/` — não criar schemas inline nas rotas
+- **Tipagem:** usar `withTypeProvider<ZodTypeProvider>()` apenas quando há schema Zod anexado
+- **Rota nova:** sempre criar schema Zod em `src/schemas/` antes de implementar o handler
+- **Ownership:** toda query de mutação deve incluir `userId` no where — nunca confiar só no `id` da rota
+- **Imports:** ESM — usar `import`/`export`, sem `require()`
+- **Erros:** não lançar erros genéricos — usar `fastify.httpErrors` ou resposta estruturada com status code correto
+
+---
+
+## Regras para o Claude Code
+
+### Pode fazer autonomamente
+
+- Adicionar/editar schemas Zod em `src/schemas/`
+- Criar novas rotas seguindo o padrão existente
+- Adicionar campos no Prisma schema e gerar migration
+- Corrigir erros de tipagem TypeScript
+- Rodar `yarn lint` e `yarn format` para verificar qualidade
+- Melhorar mensagens de erro ou validações existentes
+
+### Sempre perguntar antes
+
+- Instalar novas dependências — justificar o porquê e se não há alternativa nativa
+- Alterar o modelo de dados do Prisma de forma destrutiva (renomear campos, remover colunas)
+- Mudar a estrutura de pastas ou mover arquivos
+- Alterar o comportamento do `authMiddleware`
+- Modificar o `docker-compose.yaml` ou o `Makefile`
+- Qualquer mudança que afete o contrato de API (campos, status codes, formatos de resposta) — pode quebrar o app mobile
+
+### Nunca fazer
+
+- Usar `npm` ou `npm install`
+- Commitar arquivos `.env`
+- Remover o `yarn --immutable` do CI
+- Criar lógica de negócio diretamente nas rotas — manter handlers enxutos
