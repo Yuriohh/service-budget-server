@@ -7,6 +7,7 @@ import { ForgotPasswordSchema, UserUpdateSchema } from '../schemas/auth.schemas'
 import { authMiddleware } from '../middleware/auth';
 
 const resend = new Resend(process.env.RESEND);
+resend.domains.create({ name: 'fechaorcamento.com.br' });
 
 export async function userRoutes(fastify: FastifyInstance) {
   // Rota pública: não requer autenticação e ignora qualquer Bearer token presente no header
@@ -36,7 +37,7 @@ export async function userRoutes(fastify: FastifyInstance) {
         const resetLink = `${process.env.RESET_PASSWORD_URL}?token=${token}`;
 
         const { error: emailError } = await resend.emails.send({
-          from: 'onboarding@resend.dev',
+          from: 'Fecha Orçamento <noreply@fechaorcamento.com.br>',
           to: email,
           subject: 'Recuperação de senha',
           html: `
